@@ -1436,13 +1436,13 @@ const MasterData = (props: any) => {
     const itemsPerPage = 15;
 
     const filteredData = useMemo(() => {
-      let results = [];
-      const search = globalSearchTerm.toLowerCase();
+      let results: any[] = [];
+      const search = (globalSearchTerm || '').toLowerCase();
       if (masterSubTab === 'sensei') {
-        results = senseiList.filter(s => s.name.toLowerCase().includes(search));
+        results = senseiList.filter(s => (s.name || '').toLowerCase().includes(search));
       } else if (masterSubTab === 'student') {
         results = studentList.filter(s => {
-          const matchesSearch = s.name.toLowerCase().includes(search);
+          const matchesSearch = (s.name || '').toLowerCase().includes(search);
           const isActive = s.is_active !== false;
           const matchesStatus = (studentStatusFilter === 'Active' && isActive) || (studentStatusFilter === 'Inactive' && !isActive);
           return matchesSearch && matchesStatus;
@@ -1450,7 +1450,7 @@ const MasterData = (props: any) => {
       } else {
         results = offDays.filter(o => {
           const sensei = senseiList.find(s => s.id === o.senseiId);
-          return sensei?.name.toLowerCase().includes(search) || o.reason.toLowerCase().includes(search);
+          return (sensei?.name || '').toLowerCase().includes(search) || (o.reason || '').toLowerCase().includes(search);
         });
       }
       return results;
@@ -3265,9 +3265,9 @@ const ScheduleModal = (props: any) => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    const filteredSensei = senseiList.filter(s => s.name.toLowerCase().includes(senseiSearch.toLowerCase()));
+    const filteredSensei = senseiList.filter(s => (s.name || '').toLowerCase().includes((senseiSearch || '').toLowerCase()));
     const filteredStudents = studentList
-      .filter(s => s.name.toLowerCase().includes(studentSearch.toLowerCase()))
+      .filter(s => (s.name || '').toLowerCase().includes((studentSearch || '').toLowerCase()))
       .filter(s => !formData.studentIds?.includes(s.id));
 
     const handleSaveSchedule = async () => {
@@ -3621,7 +3621,7 @@ export default function App() {
   const analytics = useMemo(() => {
     const activeSchedules = schedules.filter(s => s.status === 'active');
     const privateClasses = activeSchedules.filter(s => s.type === 'Private').length;
-    const n5Classes = activeSchedules.filter(s => s.level.includes('N5')).length;
+    const n5Classes = activeSchedules.filter(s => (s.level || '').includes('N5')).length;
     
     const unpaidStudents = studentList.filter(s => s.payment_status === 'Unpaid').length;
     
@@ -3659,7 +3659,7 @@ export default function App() {
 
     const consolidatedLevelBreakdown: Record<string, number> = {};
     studentList.forEach(s => {
-      const levels = s.level.split(',').map(l => l.trim());
+      const levels = (s.level || '').split(',').map(l => l.trim());
       levels.forEach(l => {
         if (!l) return;
         let category = l;
@@ -3703,9 +3703,11 @@ export default function App() {
       .map(s => {
         let sessionTime = now;
         try {
-          const [hour, minute] = s.startTime.split(':');
-          sessionTime = new Date(now);
-          sessionTime.setHours(parseInt(hour), parseInt(minute), 0, 0);
+          const [hour, minute] = (s.startTime || '').split(':');
+          if (hour && minute) {
+            sessionTime = new Date(now);
+            sessionTime.setHours(parseInt(hour), parseInt(minute), 0, 0);
+          }
         } catch (e) {
           // ignore
         }
@@ -3736,7 +3738,7 @@ export default function App() {
 
     const newStudents30Days = studentList.filter(s => {
       try {
-        const joinDate = parseISO(s.id.split('-')[0] || ''); // Assuming ID starts with date or fallback
+        const joinDate = parseISO((s.id || '').split('-')[0] || ''); // Assuming ID starts with date or fallback
         return differenceInDays(now, joinDate) <= 30;
       } catch (e) { return false; }
     }).length;
@@ -4134,7 +4136,7 @@ export default function App() {
   if (!user) {
     return <AuthPage supabase={supabase} theme={theme} onAuthSuccess={(u) => setUser(u)} />;
   }
-  const isSuperAdmin = ADMIN_EMAILS.includes(user?.email?.toLowerCase() || '');
+  const isSuperAdmin = ADMIN_EMAILS.includes((user?.email || '').toLowerCase());
     const appProps = {
 activeTab,
 setActiveTab,
@@ -4239,7 +4241,7 @@ ADMIN_EMAILS
                  activeTab === 'reporting' ? 'Reporting Dashboard' : 
                  activeTab === 'checker' ? 'Smart Checker' : 'User Management'}
               </h2>
-              <p className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-1">Hello, <span className="text-indigo-600 font-bold">{user.email?.split('@')[0]}</span></p>
+              <p className="text-slate-500 dark:text-slate-400 font-medium text-xs mt-1">Hello, <span className="text-indigo-600 font-bold">{(user?.email || '').split('@')[0]}</span></p>
             </div>
           </div>
 
@@ -4278,7 +4280,7 @@ ADMIN_EMAILS
             
             <div className="bg-white dark:bg-slate-900 px-3 md:px-4 py-2 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center gap-2 md:gap-3">
               <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-black text-xs md:text-sm shadow-md">
-                {user.email?.charAt(0).toUpperCase()}
+                {(user?.email || 'U').charAt(0).toUpperCase()}
               </div>
               <div className="hidden lg:block text-right">
                 <p className="font-black text-slate-700 dark:text-slate-200 text-[9px] uppercase tracking-widest leading-none mb-1">
