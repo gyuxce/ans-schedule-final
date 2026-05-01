@@ -491,30 +491,42 @@ const TeachingSessionsView = (props: any) => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredSchedules.map(s => {
-              const student = studentList.find(st => st.id === s.studentId);
+              const studentIds = s.studentIds?.length > 0 ? s.studentIds : (s.studentId ? [s.studentId] : []);
+              const studentsForSchedule = studentList.filter(st => studentIds.includes(st.id));
+              const studentNames = studentsForSchedule.map(st => st.name).join(', ') || 'Unknown Student';
+              const studentInitial = studentsForSchedule[0]?.name?.charAt(0) || '?';
+              const sensei = senseiList.find(sn => sn.id === s.senseiId);
+              
               const tracker = lessonTrackers.find(lt => lt.scheduleId === s.id && lt.date === s.date);
               const inProgress = tracker && !tracker.material;
               const completed = tracker && tracker.material;
 
               return (
-                <div key={s.id} className={`bg-white dark:bg-slate-900 border-2 rounded-[2rem] p-4 shadow-lg transition-all hover:shadow-xl hover:-translate-y-1 ${
+                <div key={s.id} className={`bg-white dark:bg-slate-900 border-2 rounded-[2rem] p-5 shadow-lg transition-all hover:shadow-xl hover:-translate-y-1 relative overflow-hidden ${
                   completed ? 'border-emerald-100 dark:border-emerald-900/30' : 
                   inProgress ? 'border-amber-100 dark:border-amber-900/30 ring-2 ring-amber-500/5' : 
                   'border-slate-100 dark:border-slate-800'
                 }`}>
+                  {/* Header/Sensei Badge */}
+                  <div className="flex items-center mb-4">
+                    <span className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black tracking-widest uppercase rounded-lg border border-indigo-100 dark:border-indigo-800">
+                      Sensei {sensei?.name || 'Unknown'}
+                    </span>
+                  </div>
+
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-lg font-black shadow-md">
-                        {student?.name.charAt(0)}
+                      <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-xl font-black shadow-md shrink-0">
+                        {studentInitial}
                       </div>
-                      <div className="max-w-[100px]">
-                        <h4 className="font-bold text-slate-900 dark:text-white text-xs leading-tight truncate" title={student?.name}>{student?.name}</h4>
-                        <p className="text-[9px] text-slate-400 uppercase tracking-widest font-black truncate">{s.level}</p>
+                      <div className="max-w-[140px]">
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm leading-tight line-clamp-2" title={studentNames}>{studentNames}</h4>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black truncate mt-1">{s.level}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black text-indigo-600 dark:text-indigo-400 leading-none">{s.startTime}</p>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">{format(parseISO(s.date), 'dd MMM')}</p>
+                    <div className="text-right shrink-0 mt-1">
+                      <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 leading-none">{s.startTime}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase mt-1.5">{format(parseISO(s.date), 'dd MMM')}</p>
                     </div>
                   </div>
 
@@ -3759,6 +3771,10 @@ export default function App() {
     supabase.auth.getSession().then(({ data, error }) => {
       if (error) {
         console.error('Auth Session Error:', error);
+        // Sometimes the refresh token is just missing/stale on reload, force clear it
+        if (error.message?.includes('Refresh Token') || error.message?.includes('refresh token')) {
+          supabase.auth.signOut().catch(() => {});
+        }
       }
       const session = data?.session;
       const u = session?.user ?? null;
@@ -3767,6 +3783,10 @@ export default function App() {
       setAuthLoading(false);
     }).catch(err => {
       console.error('Session fetch failed:', err);
+      // fallback catch for unhandled refresh token rejects
+      if (err?.message?.includes('Refresh Token') || err?.message?.includes('refresh token')) {
+        supabase.auth.signOut().catch(() => {});
+      }
       setAuthLoading(false);
     });
 
