@@ -196,6 +196,7 @@ interface Schedule {
   senseiId: string;
   studentId?: string; // Kept for backward compatibility
   studentIds?: string[]; // Multiple students for Group/SP
+  groupId?: string | null; // Group ID for SP/Group classes
   type: string;
   level: string;
   date: string; // ISO string
@@ -316,10 +317,17 @@ return (
               </button>
               <button 
                 onClick={() => { setActiveTab('students'); setMasterSubTab('student'); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${activeTab === 'students' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${activeTab === 'students' && masterSubTab === 'student' ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
               >
                 <UserCheck size={20} />
                 <span className="font-medium">Data Students</span>
+              </button>
+              <button 
+                onClick={() => { setActiveTab('students'); setMasterSubTab('group'); setIsSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${activeTab === 'students' && masterSubTab === 'group' ? 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 shadow-sm' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
+              >
+                <UsersRound size={20} />
+                <span className="font-medium">Data Grup/SP</span>
               </button>
               <button 
                 onClick={() => { setActiveTab('offday'); setMasterSubTab('offday'); setIsSidebarOpen(false); }}
@@ -399,7 +407,7 @@ return (
 };
 
 const TeachingSessionsView = (props: any) => {
-      const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
+      const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, groupList, setGroupList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
     const [subTab, setSubTab] = useState<'today' | 'tomorrow' | 'upcoming'>('today');
     
     const todayStr = format(new Date(), 'yyyy-MM-dd');
@@ -430,9 +438,9 @@ const TeachingSessionsView = (props: any) => {
         const isDelayed = diff > 10;
 
         const newTracker: LessonTracker = {
-          id: `${Date.now()}-${crypto.randomUUID()}`,
+          id: crypto.randomUUID(),
           scheduleId: schedule.id,
-          studentId: schedule.studentId,
+          studentId: schedule.studentIds?.[0] || schedule.studentId || '',
           senseiId: schedule.senseiId,
           date: schedule.date,
           attendance: 'Hadir',
@@ -493,8 +501,10 @@ const TeachingSessionsView = (props: any) => {
             {filteredSchedules.map(s => {
               const studentIds = s.studentIds?.length > 0 ? s.studentIds : (s.studentId ? [s.studentId] : []);
               const studentsForSchedule = studentList.filter(st => studentIds.includes(st.id));
-              const studentNames = studentsForSchedule.map(st => st.name).join(', ') || 'Unknown Student';
-              const studentInitial = studentsForSchedule[0]?.name?.charAt(0) || '?';
+              const sGroup = groupList?.find((g: any) => g.id === s.groupId);
+              const displayName = sGroup ? sGroup.name : (studentsForSchedule.map(st => st.name).join(', ') || 'Unknown Student');
+              const tooltipTitle = sGroup ? `${sGroup.name} (${studentsForSchedule.map(st => st.name).join(', ')})` : displayName;
+              const studentInitial = sGroup ? sGroup.name.charAt(0) : (studentsForSchedule[0]?.name?.charAt(0) || '?');
               const sensei = senseiList.find(sn => sn.id === s.senseiId);
               
               const tracker = lessonTrackers.find(lt => lt.scheduleId === s.id && lt.date === s.date);
@@ -520,7 +530,7 @@ const TeachingSessionsView = (props: any) => {
                         {studentInitial}
                       </div>
                       <div className="max-w-[140px]">
-                        <h4 className="font-bold text-slate-900 dark:text-white text-sm leading-tight line-clamp-2" title={studentNames}>{studentNames}</h4>
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm leading-tight line-clamp-2" title={tooltipTitle}>{displayName}</h4>
                         <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black truncate mt-1">{s.level}</p>
                       </div>
                     </div>
@@ -1192,7 +1202,7 @@ const ReportingDashboard = (props: any) => {
   };
 
 const CalendarView = (props: any) => {
-      const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
+      const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, groupList, setGroupList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
     const dates = useMemo(() => {
       if (viewMode === 'week') {
         const start = startOfWeek(currentDate, { weekStartsOn: 1 });
@@ -1342,6 +1352,11 @@ const CalendarView = (props: any) => {
                           <div className="space-y-1">
                             {daySchedules.map(s => {
                               const sStudents = studentList.filter(st => scheduleHasStudent(s, st.id));
+                              const sGroup = groupList?.find((g: any) => g.id === s.groupId);
+                              const displayName = sGroup ? sGroup.name : (sStudents.length > 0 ? sStudents.map(st => st.name).join(', ') : 'Unknown Student');
+                              const displayTooltipTitle = sGroup 
+                                ? `${sGroup.name} (${sStudents.map(st => st.name).join(', ')}) - ${s.level} (${s.type})` 
+                                : `${displayName} - ${s.level} (${s.type})`;
                               const hasNoShow = lessonTrackers.some(lt => lt.scheduleId === s.id && lt.attendance === 'No Show');
                               
                               return (
@@ -1358,7 +1373,7 @@ const CalendarView = (props: any) => {
                                       ? 'bg-rose-950 text-rose-100 border-rose-900 shadow-rose-900/20' 
                                       : (TYPE_COLORS[s.type] || TYPE_COLORS['blank'])
                                   }`}
-                                  title={`${sStudents.map(st => st.name).join(', ') || 'Unknown'} - ${s.level} (${s.type})`}
+                                  title={displayTooltipTitle}
                                 >
                                   <div className="flex justify-between items-center mb-1">
                                     <span className="font-bold">{s.startTime} - {s.endTime}</span>
@@ -1368,7 +1383,7 @@ const CalendarView = (props: any) => {
                                   <div className="flex justify-between items-end">
                                     <div className="flex-1 min-w-0">
                                       <p className="truncate font-bold">
-                                        {sStudents.length > 0 ? sStudents.map(st => st.name).join(', ') : 'Unknown Student'}
+                                        {displayName}
                                       </p>
                                       <p className="text-[9px] opacity-70">{s.level}</p>
                                     </div>
@@ -1426,7 +1441,7 @@ const CalendarView = (props: any) => {
   };
 
 const MasterData = (props: any) => {
-      const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
+      const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, groupList, setGroupList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState<any>({});
     const [isSaving, setIsSaving] = useState(false);
@@ -1447,6 +1462,8 @@ const MasterData = (props: any) => {
           const matchesStatus = (studentStatusFilter === 'Active' && isActive) || (studentStatusFilter === 'Inactive' && !isActive);
           return matchesSearch && matchesStatus;
         });
+      } else if (masterSubTab === 'group') {
+        results = groupList.filter(g => (g.name || '').toLowerCase().includes(search));
       } else {
         results = offDays.filter(o => {
           const sensei = senseiList.find(s => s.id === o.senseiId);
@@ -1454,7 +1471,7 @@ const MasterData = (props: any) => {
         });
       }
       return results;
-    }, [masterSubTab, senseiList, studentList, offDays, globalSearchTerm, studentStatusFilter]);
+    }, [masterSubTab, senseiList, studentList, groupList, offDays, globalSearchTerm, studentStatusFilter]);
 
     useEffect(() => {
       setCurrentPage(1);
@@ -1469,8 +1486,8 @@ const MasterData = (props: any) => {
 
     const handleSave = async () => {
       setIsSaving(true);
-      const collectionName = masterSubTab === 'sensei' ? 'sensei' : masterSubTab === 'student' ? 'students' : 'offdays';
-      const label = masterSubTab === 'sensei' ? 'Sensei' : masterSubTab === 'student' ? 'Student' : 'Off Day';
+      const collectionName = masterSubTab === 'sensei' ? 'sensei' : masterSubTab === 'student' ? 'students' : masterSubTab === 'group' ? 'groups' : 'offdays';
+      const label = masterSubTab === 'sensei' ? 'Sensei' : masterSubTab === 'student' ? 'Student' : masterSubTab === 'group' ? 'Grup/SP' : 'Off Day';
       
       try {
         await dbOps.save(collectionName, formData);
@@ -1487,8 +1504,8 @@ const MasterData = (props: any) => {
     const handleDelete = async () => {
       if (!deleteConfirm) return;
       
-      const collectionName = masterSubTab === 'sensei' ? 'sensei' : masterSubTab === 'student' ? 'students' : 'offdays';
-      const label = masterSubTab === 'sensei' ? 'Sensei' : masterSubTab === 'student' ? 'Student' : 'Off Day';
+      const collectionName = masterSubTab === 'sensei' ? 'sensei' : masterSubTab === 'student' ? 'students' : masterSubTab === 'group' ? 'groups' : 'offdays';
+      const label = masterSubTab === 'sensei' ? 'Sensei' : masterSubTab === 'student' ? 'Student' : masterSubTab === 'group' ? 'Grup/SP' : 'Off Day';
       
       try {
         await dbOps.delete(collectionName, deleteConfirm.id);
@@ -1504,7 +1521,7 @@ const MasterData = (props: any) => {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="bg-white dark:bg-slate-800 px-4 py-2 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-3">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total {masterSubTab === 'sensei' ? 'Sensei' : 'Student'}:</span>
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Total {masterSubTab === 'sensei' ? 'Sensei' : masterSubTab === 'student' ? 'Student' : masterSubTab === 'group' ? 'Grup' : 'Off Day'}:</span>
               <span className="text-xl font-black text-indigo-600 dark:text-indigo-400 leading-none">{filteredData.length}</span>
             </div>
           </div>
@@ -1577,6 +1594,12 @@ const MasterData = (props: any) => {
                     <th className="p-4 text-left text-sm font-black text-slate-400 uppercase tracking-widest">Kelas</th>
                     <th className="p-4 text-left text-sm font-black text-slate-400 uppercase tracking-widest">Catatan</th>
                   </>
+                ) : masterSubTab === 'group' ? (
+                  <>
+                    <th className="p-4 text-left text-sm font-black text-slate-400 uppercase tracking-widest">Nama Grup/SP</th>
+                    <th className="p-4 text-left text-sm font-black text-slate-400 uppercase tracking-widest">Siswa (Anggota)</th>
+                    <th className="p-4 text-left text-sm font-black text-slate-400 uppercase tracking-widest">Deskripsi</th>
+                  </>
                 ) : (
                   <>
                     <th className="p-4 text-left text-sm font-black text-slate-400 uppercase tracking-widest">Nama Siswa</th>
@@ -1616,6 +1639,14 @@ const MasterData = (props: any) => {
                       <td className="p-4 text-xs font-medium text-slate-500 dark:text-slate-400">{item.level_mengajar || '-'}</td>
                       <td className="p-4 text-xs font-medium text-slate-500 dark:text-slate-400">{item.kelas_tersedia || '-'}</td>
                       <td className="p-4 text-sm text-slate-600 dark:text-slate-400">{item.note}</td>
+                    </>
+                  ) : masterSubTab === 'group' ? (
+                    <>
+                      <td className="p-4 font-semibold text-slate-700 dark:text-slate-200">{item.name}</td>
+                      <td className="p-4 text-sm text-slate-600 dark:text-slate-400">
+                        {item.studentIds?.map((sid: string) => studentList.find(s => s.id === sid)?.name).filter(Boolean).join(', ') || '-'}
+                      </td>
+                      <td className="p-4 text-sm text-slate-600 dark:text-slate-400">{item.description || '-'}</td>
                     </>
                   ) : (
                     <>
@@ -1824,7 +1855,7 @@ const MasterData = (props: any) => {
               >
                 <div className="p-6 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
                   <h3 className="text-xl font-bold text-slate-800 dark:text-white">
-                    {formData.id ? 'Edit' : 'Tambah'} {masterSubTab === 'sensei' ? 'Sensei' : masterSubTab === 'student' ? 'Student' : 'Off Day'}
+                    {formData.id ? 'Edit' : 'Tambah'} {masterSubTab === 'sensei' ? 'Sensei' : masterSubTab === 'student' ? 'Student' : masterSubTab === 'group' ? 'Grup / SP' : 'Off Day'}
                   </h3>
                   <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors dark:text-slate-400">
                     <X size={20} />
@@ -1866,7 +1897,7 @@ const MasterData = (props: any) => {
                   ) : (
                     <>
                       <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Nama Lengkap</label>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{masterSubTab === 'group' ? 'Nama Grup / SP' : 'Nama Lengkap'}</label>
                         <input 
                           type="text" 
                           value={formData.name || ''}
@@ -1930,6 +1961,42 @@ const MasterData = (props: any) => {
                               placeholder="Masukkan catatan..."
                               rows={2}
                             />
+                          </div>
+                        </>
+                      ) : masterSubTab === 'group' ? (
+                        <>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Deskripsi Grup / SP</label>
+                            <textarea 
+                              value={formData.description || ''}
+                              onChange={e => setFormData({ ...formData, description: e.target.value })}
+                              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white"
+                              placeholder="Deskripsi grup..."
+                              rows={2}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Siswa (Anggota Grup)</label>
+                            <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-4 max-h-48 overflow-y-auto w-full">
+                              {studentList.map(s => (
+                                <label key={s.id} className="flex items-center gap-3 py-2 border-b border-slate-100 dark:border-slate-800 last:border-0 cursor-pointer">
+                                  <input 
+                                    type="checkbox"
+                                    checked={(formData.studentIds || []).includes(s.id)}
+                                    onChange={e => {
+                                      const checked = e.target.checked;
+                                      const currentIds = Array.isArray(formData.studentIds) ? formData.studentIds : [];
+                                      const newIds = checked 
+                                        ? [...currentIds, s.id] 
+                                        : currentIds.filter((id: string) => id !== s.id);
+                                      setFormData({ ...formData, studentIds: newIds });
+                                    }}
+                                    className="w-4 h-4 text-indigo-600 rounded bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-600 outline-none"
+                                  />
+                                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{s.name} <span className="text-xs text-slate-400 font-normal">({s.level || 'NR'})</span></span>
+                                </label>
+                              ))}
+                            </div>
                           </div>
                         </>
                       ) : (
@@ -2362,8 +2429,11 @@ const SmartChecker = (props: any) => {
   };
 
 const LessonTrackerModal = (props: any) => {
-        const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
+        const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, groupList, setGroupList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
     const student = selectedTrackerStudent || studentList.find(s => selectedTrackerSchedule && scheduleHasStudent(selectedTrackerSchedule, s.id));
+    const isGroupClass = !!selectedTrackerSchedule?.groupId;
+    const sGroup = isGroupClass ? groupList?.find((g: any) => g.id === selectedTrackerSchedule.groupId) : null;
+    const displayName = isGroupClass ? sGroup?.name : student?.name;
     const sensei = selectedTrackerSchedule ? senseiList.find(s => s.id === selectedTrackerSchedule.senseiId) : null;
     const defaultDate = selectedTrackerSchedule?.date || format(new Date(), 'yyyy-MM-dd');
 
@@ -2413,7 +2483,7 @@ const LessonTrackerModal = (props: any) => {
     }, [student, lessonTrackers]);
 
     const handleSave = async () => {
-      if (!student) return;
+      if (!student && !isGroupClass) return;
       setIsSaving(true);
       try {
         const now = new Date();
@@ -2452,9 +2522,9 @@ const LessonTrackerModal = (props: any) => {
           toast.success('Progress berhasil diperbarui!');
         } else {
           const newTracker: LessonTracker = {
-            id: `${Date.now()}-${crypto.randomUUID()}`,
+            id: crypto.randomUUID(),
             scheduleId: selectedTrackerSchedule?.id || '',
-            studentId: student.id,
+            studentId: student?.id || selectedTrackerSchedule?.studentIds?.[0] || '',
             senseiId: sensei?.id || '',
             date: formData.date || format(new Date(), 'yyyy-MM-dd'),
             attendance: formData.attendance as any,
@@ -2542,7 +2612,7 @@ const LessonTrackerModal = (props: any) => {
               <div>
                 <h3 className="text-2xl font-bold text-slate-800 dark:text-white">Lesson Tracker</h3>
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  Progress Belajar: <span className="font-bold text-indigo-600 dark:text-indigo-400">{student?.name}</span> {sensei && (
+                  Progress Belajar: <span className="font-bold text-indigo-600 dark:text-indigo-400">{displayName}</span> {sensei && (
                     <> oleh <span className="font-bold text-emerald-600 dark:text-emerald-400">{sensei.name}</span></>
                   )}
                 </p>
@@ -3167,7 +3237,7 @@ const ResourceHubModal = (props: any) => {
   };
 
 const ScheduleModal = (props: any) => {
-      const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
+      const { activeTab, setActiveTab, masterSubTab, setMasterSubTab, syncConfig, setSyncConfig, dbStatus, setDbStatus, gasUrl, setGasUrl, isSyncing, setIsSyncing, lastSync, setLastSync, showSettings, setShowSettings, senseiList, setSenseiList, studentList, setStudentList, groupList, setGroupList, offDays, setOffDays, schedules, setSchedules, lessonTrackers, setLessonTrackers, viewMode, setViewMode, currentDate, setCurrentDate, studentStatusFilter, setStudentStatusFilter, globalSearchTerm, setGlobalSearchTerm, dateRange, setDateRange, showScheduleModal, setShowScheduleModal, showTrackerModal, setShowTrackerModal, showRekapModal, setShowRekapModal, showProfileModal, setShowProfileModal, selectedProfileData, setSelectedProfileData, selectedTrackerSchedule, setSelectedTrackerSchedule, selectedTrackerStudent, setSelectedTrackerStudent, showResourceHub, setShowResourceHub, selectedResourceStudent, setSelectedResourceStudent, editingSchedule, setEditingSchedule, selectedCell, setSelectedCell, isSidebarOpen, setIsSidebarOpen, user, setUser, authLoading, setAuthLoading, theme, setTheme, indonesianDayName, analytics, supabase, handleFullSync, handlePullData, sanitizeData, dbOps, isSuperAdmin, ADMIN_EMAILS } = props;
     const [formData, setFormData] = useState<any>(() => {
       if (editingSchedule) {
         const start = parseISO(`2000-01-01T${editingSchedule.startTime}`);
@@ -3177,7 +3247,8 @@ const ScheduleModal = (props: any) => {
         return { 
           ...editingSchedule, 
           duration,
-          studentIds: editingSchedule.studentIds || (editingSchedule.studentId ? [editingSchedule.studentId] : [])
+          studentIds: editingSchedule.studentIds || (editingSchedule.studentId ? [editingSchedule.studentId] : []),
+          isGroupClass: !!editingSchedule.groupId
         };
       }
       if (selectedCell) return { 
@@ -3191,7 +3262,9 @@ const ScheduleModal = (props: any) => {
         status: 'active',
         targetSessions: 1,
         daysOfWeek: [],
-        studentIds: []
+        studentIds: [],
+        isGroupClass: false,
+        groupId: null
       };
       return {
         senseiId: senseiList[0]?.id || '',
@@ -3204,7 +3277,9 @@ const ScheduleModal = (props: any) => {
         level: 'Intensif N5',
         status: 'active',
         targetSessions: 1,
-        daysOfWeek: []
+        daysOfWeek: [],
+        isGroupClass: false,
+        groupId: null
       };
     });
 
@@ -3286,10 +3361,11 @@ const ScheduleModal = (props: any) => {
           while (sessionsCreated < formData.targetSessions && safetyCounter < 1000) {
             if (selectedDays.includes(getDay(currentDateObj))) {
               newSchedules.push({
-                id: `${Date.now()}-${sessionsCreated}-${crypto.randomUUID()}`,
+                id: crypto.randomUUID(),
                 senseiId: formData.senseiId,
+                groupId: formData.isGroupClass ? formData.groupId : null,
                 studentIds: formData.studentIds,
-                type: formData.type,
+                type: formData.isGroupClass ? 'Group' : formData.type,
                 level: formData.level,
                 date: format(currentDateObj, 'yyyy-MM-dd'),
                 startTime: formData.startTime,
@@ -3305,10 +3381,11 @@ const ScheduleModal = (props: any) => {
           }
         } else {
           newSchedules.push({
-            id: editingSchedule?.id || `${Date.now()}-${crypto.randomUUID()}`,
+            id: editingSchedule?.id || crypto.randomUUID(),
             senseiId: formData.senseiId,
+            groupId: formData.isGroupClass ? formData.groupId : null,
             studentIds: formData.studentIds,
-            type: formData.type,
+            type: formData.isGroupClass ? 'Group' : formData.type,
             level: formData.level,
             date: formData.date,
             startTime: formData.startTime,
@@ -3416,26 +3493,64 @@ const ScheduleModal = (props: any) => {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Student(s) {(formData.type === 'Group' || formData.type === 'Semi-Private') && <span className="ml-2 text-indigo-500 normal-case">(Bisa pilih multi)</span>}</label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {formData.studentIds?.map((sid: string) => (
-                    <div key={sid} className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-800 text-xs font-bold shadow-sm">
-                      {studentList.find(st => st.id === sid)?.name || 'Unknown'}
-                      <button onClick={() => setFormData((prev: any) => ({ ...prev, studentIds: prev.studentIds.filter((id: string) => id !== sid) }))} className="hover:text-rose-500"><X size={14} /></button>
-                    </div>
-                  ))}
-                  {(!formData.studentIds || formData.studentIds.length === 0) && <span className="text-xs text-slate-400 italic">Belum ada siswa terpilih</span>}
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Tipe Peserta</label>
+                <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shadow-sm w-fit mb-4">
+                  <button onClick={() => setFormData((prev: any) => ({ ...prev, isGroupClass: false, groupId: null }))} className={`px-6 py-2 rounded-lg text-xs font-bold transition-all flex-[1] text-center ${!formData.isGroupClass ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Peserta Individu</button>
+                  <button onClick={() => setFormData((prev: any) => ({ ...prev, isGroupClass: true, studentIds: [] }))} className={`px-6 py-2 rounded-lg text-xs font-bold transition-all flex-[1] text-center ${formData.isGroupClass ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Kelas Grup (SP)</button>
                 </div>
-                {((formData.type !== 'Private' && formData.type !== 'Kids Private') || (formData.studentIds?.length || 0) < 1) && (
-                  <div className="relative">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input type="text" placeholder="Cari & Tambah Siswa..." value={studentSearch} onChange={e => setStudentSearch(e.target.value)} className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white" />
-                    {studentSearch && (
-                      <div className="absolute z-10 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-xl max-h-40 overflow-y-auto text-slate-700 dark:text-slate-300">
-                        {filteredStudents.map(s => <div key={s.id} onClick={() => { setFormData((prev: any) => ({ ...prev, studentIds: [...(prev.studentIds || []), s.id], level: s.level_sekarang || s.level })); setStudentSearch(''); }} className="p-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer text-sm font-medium">{s.name} <span className="text-[10px] text-slate-400 ml-2">({s.level})</span></div>)}
+
+                {formData.isGroupClass ? (
+                  <div className="mt-4">
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Pilih Grup / SP</label>
+                    <select 
+                      value={formData.groupId || ''}
+                      onChange={e => {
+                        const grpInfo = groupList.find((g: any) => g.id === e.target.value);
+                        setFormData((prev: any) => ({ ...prev, groupId: e.target.value, studentIds: grpInfo ? grpInfo.studentIds : [] }));
+                      }}
+                      className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white"
+                    >
+                      <option value="">Pilih Grup/SP...</option>
+                      {groupList.map((g: any) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+
+                    <div className="mt-3">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Anggota Grup:</label>
+                      <div className="flex flex-wrap gap-2">
+                        {formData.studentIds?.map((sid: string) => (
+                          <div key={sid} className="bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-lg border border-indigo-100 dark:border-indigo-800 text-[10px] font-bold">
+                            {studentList.find(s => s.id === sid)?.name || 'Unknown'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Student(s) {(formData.type === 'Group' || formData.type === 'Semi-Private') && <span className="ml-2 text-indigo-500 normal-case">(Bisa pilih multi)</span>}</label>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {formData.studentIds?.map((sid: string) => (
+                        <div key={sid} className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-3 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-800 text-xs font-bold shadow-sm">
+                          {studentList.find(st => st.id === sid)?.name || 'Unknown'}
+                          <button onClick={() => setFormData((prev: any) => ({ ...prev, studentIds: prev.studentIds.filter((id: string) => id !== sid) }))} className="hover:text-rose-500"><X size={14} /></button>
+                        </div>
+                      ))}
+                      {(!formData.studentIds || formData.studentIds.length === 0) && <span className="text-xs text-slate-400 italic">Belum ada siswa terpilih</span>}
+                    </div>
+                    {((formData.type !== 'Private' && formData.type !== 'Kids Private') || (formData.studentIds?.length || 0) < 1) && (
+                      <div className="relative">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                        <input type="text" placeholder="Cari & Tambah Siswa..." value={studentSearch} onChange={e => setStudentSearch(e.target.value)} className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500/20 dark:text-white" />
+                        {studentSearch && (
+                          <div className="absolute z-10 w-full mt-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-xl max-h-40 overflow-y-auto text-slate-700 dark:text-slate-300">
+                            {filteredStudents.map(s => <div key={s.id} onClick={() => { setFormData((prev: any) => ({ ...prev, studentIds: [...(prev.studentIds || []), s.id], level: s.level_sekarang || s.level })); setStudentSearch(''); }} className="p-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 cursor-pointer text-sm font-medium">{s.name} <span className="text-[10px] text-slate-400 ml-2">({s.level})</span></div>)}
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
 
@@ -3522,9 +3637,11 @@ const ScheduleModal = (props: any) => {
 const ADMIN_EMAILS = ['contact.ilusa@gmail.com', 'yugegirip@gmail.com'];
 
 const UI_TO_DB_MAP: Record<string, string> = {
+  'createdAt': 'created_at',
   'senseiId': 'sensei_id',
   'studentId': 'student_id',
   'studentIds': 'student_ids',
+  'groupId': 'group_id',
   'startTime': 'start_time',
   'endTime': 'end_time',
   'updatedAt': 'updated_at',
@@ -3547,7 +3664,7 @@ const DB_TO_UI_MAP: Record<string, string> = Object.fromEntries(
 export default function App() {
   // --- STATE ---
   const [activeTab, setActiveTab] = useState<'dashboard' | 'calendar' | 'sensei' | 'students' | 'offday' | 'checker' | 'teaching' | 'reporting'>('dashboard');
-  const [masterSubTab, setMasterSubTab] = useState<'sensei' | 'student' | 'offday'>('sensei');
+  const [masterSubTab, setMasterSubTab] = useState<'sensei' | 'student' | 'offday' | 'group'>('sensei');
   
   // Sync Configuration
   const [syncConfig, setSyncConfig] = useState(() => {
@@ -3566,6 +3683,7 @@ export default function App() {
 
   const [senseiList, setSenseiList] = useState<Sensei[]>([]);
   const [studentList, setStudentList] = useState<Student[]>([]);
+  const [groupList, setGroupList] = useState<any[]>([]);
   const [offDays, setOffDays] = useState<OffDay[]>([]);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [lessonTrackers, setLessonTrackers] = useState<LessonTracker[]>([]);
@@ -3848,9 +3966,10 @@ export default function App() {
           // Initial Fetch
           const fetchAll = async () => {
             try {
-              const [sRes, stRes, odRes, scRes, ltRes] = await Promise.all([
+              const [sRes, stRes, grpRes, odRes, scRes, ltRes] = await Promise.all([
                 supabase.from('sensei').select('*'),
                 supabase.from('students').select('*'),
+                supabase.from('groups').select('*'),
                 supabase.from('offdays').select('*'),
                 supabase.from('schedules').select('*'),
                 supabase.from('lesson_trackers').select('*')
@@ -3869,6 +3988,7 @@ export default function App() {
 
               if (sRes.data) setSenseiList(mapFromDb(sRes.data));
               if (stRes.data) setStudentList(mapFromDb(stRes.data));
+              if (grpRes.data) setGroupList(mapFromDb(grpRes.data));
               if (odRes.data) setOffDays(mapFromDb(odRes.data));
               if (scRes.data) setSchedules(mapFromDb(scRes.data));
               if (ltRes.data) setLessonTrackers(mapFromDb(ltRes.data));
@@ -3979,9 +4099,10 @@ export default function App() {
     const allowedFields: any = {
       'sensei': ['id', 'name', 'note', 'no_wa', 'email', 'level_mengajar', 'kelas_tersedia'],
       'students': ['id', 'name', 'phone', 'level', 'type', 'sensei_name', 'level_awal', 'level_sekarang', 'durasi_kelas', 'payment_status', 'is_active', 'classroom_link', 'chat_link', 'progress_link', 'curriculum_link'],
+      'groups': ['id', 'name', 'description', 'studentIds', 'createdAt', 'updatedAt', 'updatedBy'],
       'offdays': ['id', 'senseiId', 'date', 'reason'],
       'lesson_trackers': ['id', 'scheduleId', 'studentId', 'senseiId', 'date', 'attendance', 'material', 'score', 'notes', 'caseNotes', 'studentFeedback', 'actualStartTime', 'isDelayed', 'createdAt'],
-      'schedules': ['id', 'senseiId', 'studentId', 'studentIds', 'type', 'level', 'date', 'startTime', 'endTime', 'status', 'updatedAt', 'updatedBy'],
+      'schedules': ['id', 'senseiId', 'studentId', 'studentIds', 'groupId', 'type', 'level', 'date', 'startTime', 'endTime', 'status', 'updatedAt', 'updatedBy'],
       'profiles': ['id', 'email', 'role', 'status', 'lastLogin']
     };
     const fields = allowedFields[collectionName];
@@ -4017,7 +4138,7 @@ export default function App() {
       
       if (syncConfig.type === 'supabase') {
         try {
-          const id = sanitized.id || `${Date.now()}-${crypto.randomUUID()}`;
+          const id = sanitized.id || crypto.randomUUID();
           finalDataForDb = { ...sanitized, id };
           
           // Original data mapping for state
@@ -4030,13 +4151,14 @@ export default function App() {
           throw err;
         }
       } else {
-        const id = data.id || `${Date.now()}-${crypto.randomUUID()}`;
+        const id = data.id || crypto.randomUUID();
         finalDataForState = { ...data, id };
       }
 
       const setterMap: any = {
         'sensei': setSenseiList,
         'students': setStudentList,
+        'groups': setGroupList,
         'offdays': setOffDays,
         'schedules': setSchedules,
         'lesson_trackers': setLessonTrackers
@@ -4060,7 +4182,7 @@ export default function App() {
       
       if (syncConfig.type === 'supabase') {
         try {
-          const finalDataArrayForDb = sanitizedArray.map((d, idx) => d.id ? d : { ...d, id: `${Date.now()}-${idx}-${crypto.randomUUID()}` });
+          const finalDataArrayForDb = sanitizedArray.map((d, idx) => d.id ? d : { ...d, id: crypto.randomUUID() });
           const { error } = await supabase.from(collectionName).upsert(finalDataArrayForDb);
           if (error) throw error;
           
@@ -4073,12 +4195,13 @@ export default function App() {
           throw err;
         }
       } else {
-        finalDataArrayForState = dataArray.map((d, idx) => d.id ? d : { ...d, id: `${Date.now()}-${idx}-${crypto.randomUUID()}` });
+        finalDataArrayForState = dataArray.map((d, idx) => d.id ? d : { ...d, id: crypto.randomUUID() });
       }
 
       const setterMap: any = {
         'sensei': setSenseiList,
         'students': setStudentList,
+        'groups': setGroupList,
         'offdays': setOffDays,
         'schedules': setSchedules,
         'lesson_trackers': setLessonTrackers
@@ -4111,6 +4234,7 @@ export default function App() {
       const setterMap: any = {
         'sensei': setSenseiList,
         'students': setStudentList,
+        'groups': setGroupList,
         'offdays': setOffDays,
         'schedules': setSchedules,
         'lesson_trackers': setLessonTrackers
@@ -4158,6 +4282,8 @@ senseiList,
 setSenseiList,
 studentList,
 setStudentList,
+groupList,
+setGroupList,
 offDays,
 setOffDays,
 schedules,
@@ -4236,7 +4362,7 @@ ADMIN_EMAILS
                  activeTab === 'calendar' ? 'Kalender Jadwal' :
                  activeTab === 'teaching' ? 'Sesi Mengajar' :
                  activeTab === 'sensei' ? 'Data Sensei' : 
-                 activeTab === 'students' ? 'Data Students' : 
+                 activeTab === 'students' ? (masterSubTab === 'group' ? 'Data Grup/SP' : 'Data Students') : 
                  activeTab === 'offday' ? 'Off Days' : 
                  activeTab === 'reporting' ? 'Reporting Dashboard' : 
                  activeTab === 'checker' ? 'Smart Checker' : 'User Management'}
